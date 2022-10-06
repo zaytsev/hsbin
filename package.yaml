@@ -20,7 +20,29 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/hsbin#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+- name: base 
+  version: ">= 4.7 && < 5"
+  mixin:
+    - hiding (Prelude)
+- name: relude
+  mixin: 
+    - (Relude as Prelude)
+- fast-logger
+- aeson
+- servant
+- servant-server
+- hasql
+- hasql-th
+- hasql-pool
+- hasql-migration
+- tuple
+- transformers
+- warp
+- http-types
+- tuple
+- exceptions
+- unliftio-core
+- mtl
 
 ghc-options:
 - -Wall

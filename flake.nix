@@ -10,12 +10,12 @@
         (final: prev: {
           # This overlay adds our project to pkgs
           hsbinProject =
-            final.haskell-nix.stackProject' {
+            final.haskell-nix.project' {
               src = final.haskell-nix.haskellLib.cleanGit {
                 name = "hsbin";
                 src = ./.;
               };
-              compiler-nix-name = "ghc924";
+              compiler-nix-name = "ghc902";
               # This is used by `nix develop .` to open a shell for use with
               # `cabal`, `hlint` and `haskell-language-server`
               shell.tools = {
@@ -26,6 +26,7 @@
               # Non-Haskell shell tools go here
               shell.buildInputs = with pkgs; [
                 nixpkgs-fmt
+                hpack
               ];
             };
         })
@@ -36,7 +37,7 @@
         # crossPlatforms = p: [p.ghcjs];
       };
     in flake // {
-      packages.default = flake.packages."hsbin:exe:hsbin";
+      packages.default = flake.packages."hsbin:exe:hsbin-exe";
     });
 }
 
