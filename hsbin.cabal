@@ -18,6 +18,7 @@ build-type:     Simple
 extra-source-files:
     README.md
     CHANGELOG.md
+    migrations
 
 source-repository head
   type: git
@@ -25,7 +26,9 @@ source-repository head
 
 library
   exposed-modules:
+      DB
       Lib
+      Types
   other-modules:
       Paths_hsbin
   autogen-modules:
@@ -36,20 +39,25 @@ library
   build-depends:
       aeson
     , base >=4.7 && <5
+    , bytestring
     , exceptions
     , fast-logger
+    , file-embed
     , hasql
     , hasql-migration
     , hasql-pool
     , hasql-th
+    , hasql-transaction
     , http-types
     , mtl
+    , profunctors
     , relude
     , servant
     , servant-server
     , transformers
     , tuple
     , unliftio-core
+    , vector
     , warp
   mixins:
       base hiding (Prelude)
@@ -68,21 +76,26 @@ executable hsbin-exe
   build-depends:
       aeson
     , base >=4.7 && <5
+    , bytestring
     , exceptions
     , fast-logger
+    , file-embed
     , hasql
     , hasql-migration
     , hasql-pool
     , hasql-th
+    , hasql-transaction
     , hsbin
     , http-types
     , mtl
+    , profunctors
     , relude
     , servant
     , servant-server
     , transformers
     , tuple
     , unliftio-core
+    , vector
     , warp
   mixins:
       base hiding (Prelude)
@@ -102,21 +115,26 @@ test-suite hsbin-test
   build-depends:
       aeson
     , base >=4.7 && <5
+    , bytestring
     , exceptions
     , fast-logger
+    , file-embed
     , hasql
     , hasql-migration
     , hasql-pool
     , hasql-th
+    , hasql-transaction
     , hsbin
     , http-types
     , mtl
+    , profunctors
     , relude
     , servant
     , servant-server
     , transformers
     , tuple
     , unliftio-core
+    , vector
     , warp
   mixins:
       base hiding (Prelude)

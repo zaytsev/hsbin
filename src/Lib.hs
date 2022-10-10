@@ -14,10 +14,16 @@ import Control.Exception (try)
 import Control.Monad.Catch (MonadThrow (throwM))
 import Control.Monad.IO.Unlift (MonadUnliftIO)
 import Control.Monad.Reader (ask)
-import Data.Aeson (FromJSON (..), ToJSON, defaultOptions, genericParseJSON)
-import Servant (Capture, DeleteNoContent, Get, Handler, HasServer (ServerT), JSON, NoContent (..), PostCreated, QueryParam, ReqBody, hoistServer, type (:<|>) (..), type (:>))
+import Data.Aeson (FromJSON (..), defaultOptions, genericParseJSON)
+import Servant (Capture, DeleteNoContent, Get, Handler, HasServer (ServerT), JSON, NoContent (..), PostCreated, QueryParam, ReqBody, err500, hoistServer, type (:<|>) (..), type (:>))
 import Servant.Server (Handler (Handler), Server, err404)
 import Prelude hiding (ask)
+
+import Hasql.Pool (Pool, use)
+import Hasql.Session (statement)
+import Types
+
+import qualified DB
 
 data PasteEntry = Entry
     { entryTitle :: Text
@@ -29,17 +35,6 @@ data PasteEntry = Entry
 instance FromJSON PasteEntry where
     parseJSON = genericParseJSON defaultOptions
 
-type PasteId = Int
-
-data PasteItem = PasteItem
-    { itemId :: PasteId
-    , itemTitle :: Text
-    , itemBody :: Text
-    }
-    deriving (Eq, Show, Generic)
-
-instance ToJSON PasteItem
-
 type ListItems = QueryParam "offset" Int :> QueryParam "limit" Int :> Get '[JSON] [PasteItem]
 type GetItem = Capture "paste_id" PasteId :> Get '[JSON] PasteItem
 type AddEntry = ReqBody '[JSON] PasteEntry :> PostCreated '[JSON] PasteItem
@@ -47,19 +42,11 @@ type DeleteEntry = Capture "entryid" PasteId :> DeleteNoContent
 type PasteBinAPI = "paste" :> (ListItems :<|> GetItem :<|> AddEntry :<|> DeleteEntry)
 
 data Env = Env
-    { pasteItems :: TVar [PasteItem]
-    , pasteCounter :: TVar Int
+    { _db :: Pool
     }
 
-mkEnv :: IO Env
-mkEnv = do
-    items <- newTVarIO []
-    counter <- newTVarIO 0
-    return
-        Env
-            { pasteItems = items
-            , pasteCounter = counter
-            }
+mkEnv :: Pool -> Env
+mkEnv = Env
 
 newtype AppM a = AppM {runAppM :: ReaderT Env IO a}
     deriving
@@ -77,37 +64,45 @@ app config = hoistServer api (nt config) server
     nt :: Env -> AppM a -> Handler a
     nt env m = Handler $ ExceptT $ try $ runReaderT (runAppM m) env
 
-deleteItem :: Int -> AppM NoContent
+deleteItem :: PasteId -> AppM NoContent
 deleteItem i = do
-    env <- ask
-    atomically $ modifyTVar' (pasteItems env) $ filter (\x -> itemId x /= i)
-    return NoContent
+    Env{_db = db} <- ask
+    deleteResult <- liftIO $ use db $ statement i DB.deleteItem
+    case deleteResult of
+        Left _ -> throwM err500
+        Right deleted ->
+            if deleted
+                then return NoContent
+                else throwM err404
 
 createItem :: PasteEntry -> AppM PasteItem
-createItem entry = do
-    Env{pasteItems = items, pasteCounter = counter} <- ask
-    i <- readTVarIO counter
-    let newItem =
-            PasteItem
-                { itemId = i
-                , itemTitle = entryTitle entry
-                , itemBody = entryBody entry
-                }
-    atomically $ do
-        modifyTVar' counter (+ 1)
-        modifyTVar' items (newItem :)
-    return newItem
+createItem Entry{entryTitle = title, entryBody = body} = do
+    Env{_db = db} <- ask
+    createResult <- liftIO $ use db $ statement (title, body) DB.saveItem
+    case createResult of
+        Left _ -> throwM err500
+        Right newId ->
+            return $
+                PasteItem
+                    { itemId = newId
+                    , itemTitle = title
+                    , itemBody = body
+                    }
 
-getItem :: Int -> AppM PasteItem
+getItem :: PasteId -> AppM PasteItem
 getItem i = do
-    env <- ask
-    items <- readTVarIO $ pasteItems env
-    let item = find (\x -> i == itemId x) items
-    case item of
-        Nothing -> throwM err404
-        Just x -> return x
+    Env{_db = db} <- ask
+    findResult <- liftIO $ use db $ statement i DB.findItem
+    case findResult of
+        Left _ -> throwM err500
+        Right item -> case item of
+            Nothing -> throwM err404
+            Just x -> return x
 
 listItems :: Maybe Int -> Maybe Int -> AppM [PasteItem]
-listItems _offset _limit = do
-    env <- ask
-    readTVarIO $ pasteItems env
+listItems offset limit = do
+    Env{_db = db} <- ask
+    listResult <- liftIO $ use db $ statement (fromMaybe 0 offset, fromMaybe 25 limit) DB.listItems
+    case listResult of
+        Left _ -> throwM err500
+        Right items -> return $ toList items

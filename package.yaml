@@ -9,6 +9,7 @@ copyright:           "2022 Author name here"
 extra-source-files:
 - README.md
 - CHANGELOG.md
+- migrations
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -32,6 +33,7 @@ dependencies:
 - servant
 - servant-server
 - hasql
+- hasql-transaction
 - hasql-th
 - hasql-pool
 - hasql-migration
@@ -43,6 +45,10 @@ dependencies:
 - exceptions
 - unliftio-core
 - mtl
+- file-embed
+- profunctors
+- vector
+- bytestring
 
 ghc-options:
 - -Wall
